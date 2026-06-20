@@ -24,7 +24,7 @@ if (typeof generateDataset === 'undefined') {
 
 
 // ─── Backend API Configuration ────────────────────────────────────────
-const API_BASE   = 'http://localhost:8000';
+const API_BASE   = 'https://trafficg-production.up.railway.app';
 const API_TIMEOUT = 60000; // 60s (model inference can take time)
 
 let backendOnline = false;
