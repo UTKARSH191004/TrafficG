@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrafficAI — Automated Traffic Violation Detection System</title>
+  <meta name="description" content="AI-powered computer vision system for automated detection, classification, and documentation of traffic violations from surveillance imagery." />
+  <meta name="keywords" content="traffic violation detection, computer vision, AI, license plate recognition, traffic enforcement" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="jsErrorBar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#ff3b5c;color:#fff;padding:10px 16px;font-family:monospace;font-size:13px;"></div>
+<script>
+  window.addEventListener('error', function(e) {
+    var bar = document.getElementById('jsErrorBar');
+    if (bar) { bar.style.display='block'; bar.textContent = 'JS ERROR: ' + e.message + ' (' + (e.filename||'').split('/').pop() + ':' + e.lineno + ')'; }
+    console.error('Caught:', e.message, e.filename, e.lineno);
+  });
+  // Ensure navigate is always globally available as a fallback
+  window._navFallback = function(page) {
+    document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+    document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
+    var pageEl = document.getElementById('page-' + page);
+    var navEl  = document.getElementById('nav-' + page);
+    if (pageEl) pageEl.classList.add('active');
+    if (navEl)  navEl.classList.add('active');
+    var bc = document.getElementById('breadcrumb');
+    if (bc && navEl) bc.textContent = navEl.textContent.trim();
+  };
+</script>
+
+
+  <!-- ─── SIDEBAR ─────────────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <circle cx="14" cy="14" r="13" stroke="url(#brandGrad)" stroke-width="2"/>
+          <path d="M8 14l4 4 8-8" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="14" cy="14" r="4" fill="none" stroke="#00d4ff" stroke-width="1.5"/>
+          <defs>
+            <linearGradient id="brandGrad" x1="0" y1="0" x2="28" y2="28">
+              <stop offset="0%" stop-color="#00d4ff"/>
+              <stop offset="100%" stop-color="#00ff88"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">TrafficAI</span>
+        <span class="brand-sub">Vision System</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+      <a href="#" class="nav-item" data-page="analyze" id="nav-analyze">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
+        Analyze Image
+      </a>
+      <a href="#" class="nav-item" data-page="gallery" id="nav-gallery">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+        Evidence Gallery
+      </a>
+      <div class="nav-section-label">Intelligence</div>
+      <a href="#" class="nav-item" data-page="analytics" id="nav-analytics">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Analytics
+      </a>
+      <a href="#" class="nav-item" data-page="ocr" id="nav-ocr">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2"/><path d="M7 12h10"/></svg>
+        Plate Recognition
+      </a>
+      <a href="#" class="nav-item" data-page="reports" id="nav-reports">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Reports
+      </a>
+      <div class="nav-section-label">System</div>
+      <a href="#" class="nav-item" data-page="performance" id="nav-performance">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+        Performance
+      </a>
+      <a href="#" class="nav-item" data-page="settings" id="nav-settings">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93L17.66 6.34M4.93 4.93l1.41 1.41M12 2v2M12 20v2M4.93 19.07l1.41-1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2"/></svg>
+        Settings
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="system-status">
+        <span class="status-dot pulse-green"></span>
+        <span>System Active</span>
+      </div>
+      <div class="sidebar-version">v2.4.1 — Build 2026</div>
+    </div>
+  </aside>
+
+  <!-- ─── MAIN CONTENT ─────────────────────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle" id="menuToggle">
+          <span></span><span></span><span></span>
+        </button>
+        <div class="breadcrumb" id="breadcrumb">
+          <span>Dashboard</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="live-badge">
+          <span class="live-dot"></span>
+          <span>LIVE</span>
+        </div>
+        <div class="topbar-time" id="liveTime"></div>
+        <div class="cam-count">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          <span>24 Cams</span>
+        </div>
+        <button class="notification-btn" id="notifBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="notif-badge" id="notifCount">3</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ─── PAGE: DASHBOARD ─────────────────────────────────────────────── -->
+    <section class="page active" id="page-dashboard">
+      <!-- Hero Banner -->
+      <div class="hero-banner">
+        <div class="hero-content">
+          <div class="hero-badge">🚦 AI-Powered Traffic Enforcement</div>
+          <h1 class="hero-title">Automated Traffic <span class="gradient-text">Violation Detection</span></h1>
+          <p class="hero-sub">Real-time computer vision system analyzing surveillance feeds to detect, classify, and document traffic violations with enterprise-grade accuracy.</p>
+          <div class="hero-actions">
+            <button class="btn-primary" onclick="(typeof navigate==='function'?navigate:_navFallback)('analyze')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              Analyze Image
+            </button>
+            <button class="btn-secondary" onclick="(typeof navigate==='function'?navigate:_navFallback)('analytics')">View Analytics</button>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="detection-demo" id="detectionDemo">
+            <canvas id="demoCanvas" width="420" height="280"></canvas>
+            <div class="demo-overlay-label">LIVE DETECTION FEED</div>
+            <div class="demo-fps">30 FPS</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid">
+        <div class="kpi-card" data-color="blue">
+          <div class="kpi-icon blue">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          </div>
+          <div class="kpi-info">
+            <div class="kpi-value" id="kpiTotal">0</div>
+            <div class="kpi-label">Total Violations Today</div>
+          </div>
+          <div class="kpi-trend up">+12.4%</div>
+        </div>
+        <div class="kpi-card" data-color="red">
+          <div class="kpi-icon red">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="kpi-info">
+            <div class="kpi-value" id="kpiCritical">0</div>
+            <div class="kpi-label">Critical Violations</div>
+          </div>
+          <div class="kpi-trend up">+5.1%</div>
+        </div>
+        <div class="kpi-card" data-color="green">
+          <div class="kpi-icon green">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="kpi-info">
+            <div class="kpi-value" id="kpiAccuracy">0%</div>
+            <div class="kpi-label">Detection Accuracy</div>
+          </div>
+          <div class="kpi-trend up">+0.3%</div>
+        </div>
+        <div class="kpi-card" data-color="purple">
+          <div class="kpi-icon purple">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2"/><path d="M7 12h10"/></svg>
+          </div>
+          <div class="kpi-info">
+            <div class="kpi-value" id="kpiPlates">0</div>
+            <div class="kpi-label">Plates Recognized</div>
+          </div>
+          <div class="kpi-trend up">+8.7%</div>
+        </div>
+        <div class="kpi-card" data-color="orange">
+          <div class="kpi-icon orange">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          </div>
+          <div class="kpi-info">
+            <div class="kpi-value" id="kpiImages">0</div>
+            <div class="kpi-label">Images Processed</div>
+          </div>
+          <div class="kpi-trend up">+22.1%</div>
+        </div>
+        <div class="kpi-card" data-color="teal">
+          <div class="kpi-icon teal">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="kpi-info">
+            <div class="kpi-value" id="kpiAvgTime">0ms</div>
+            <div class="kpi-label">Avg. Processing Time</div>
+          </div>
+          <div class="kpi-trend down">-18ms</div>
+        </div>
+      </div>
+
+      <!-- Dashboard Panels Row -->
+      <div class="dashboard-grid">
+
+        <!-- Recent Violations Feed -->
+        <div class="panel panel-feed">
+          <div class="panel-header">
+            <h3 class="panel-title">Live Violation Feed</h3>
+            <span class="panel-badge live">● LIVE</span>
+          </div>
+          <div class="violation-feed" id="violationFeed"></div>
+        </div>
+
+        <!-- Violation Type Donut -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3 class="panel-title">Violation Breakdown</h3>
+            <select class="panel-select" id="donutPeriod">
+              <option>Today</option>
+              <option>This Week</option>
+              <option>This Month</option>
+            </select>
+          </div>
+          <div class="chart-wrapper" style="height:220px">
+            <canvas id="violationDonut"></canvas>
+          </div>
+          <div class="donut-legend" id="donutLegend"></div>
+        </div>
+
+        <!-- Hourly Bar Chart -->
+        <div class="panel panel-wide">
+          <div class="panel-header">
+            <h3 class="panel-title">Hourly Violations (Today)</h3>
+            <div class="panel-tabs" id="hourlyTabs">
+              <button class="tab-btn active" data-target="all">All</button>
+              <button class="tab-btn" data-target="helmet">Helmet</button>
+              <button class="tab-btn" data-target="redlight">Red Light</button>
+              <button class="tab-btn" data-target="speed">Speed</button>
+            </div>
+          </div>
+          <div class="chart-wrapper" style="height:220px">
+            <canvas id="hourlyBar"></canvas>
+          </div>
+        </div>
+
+        <!-- Processing Pipeline -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3 class="panel-title">AI Pipeline Status</h3>
+          </div>
+          <div class="pipeline-stages">
+            <div class="pipeline-stage done">
+              <div class="stage-icon">🎞️</div>
+              <div class="stage-info">
+                <div class="stage-name">Image Intake</div>
+                <div class="stage-stat" id="stageIntake">1,248 imgs/hr</div>
+              </div>
+              <div class="stage-bar"><div class="stage-fill" style="width:92%"></div></div>
+            </div>
+            <div class="pipeline-arrow">▼</div>
+            <div class="pipeline-stage done">
+              <div class="stage-icon">🔬</div>
+              <div class="stage-info">
+                <div class="stage-name">Preprocessing</div>
+                <div class="stage-stat">Denoise · Enhance · Normalize</div>
+              </div>
+              <div class="stage-bar"><div class="stage-fill" style="width:88%"></div></div>
+            </div>
+            <div class="pipeline-arrow">▼</div>
+            <div class="pipeline-stage active">
+              <div class="stage-icon">🚗</div>
+              <div class="stage-info">
+                <div class="stage-name">Vehicle Detection</div>
+                <div class="stage-stat">YOLOv8 · 97.3% mAP</div>
+              </div>
+              <div class="stage-bar"><div class="stage-fill pulsing" style="width:74%"></div></div>
+            </div>
+            <div class="pipeline-arrow">▼</div>
+            <div class="pipeline-stage active">
+              <div class="stage-icon">⚠️</div>
+              <div class="stage-info">
+                <div class="stage-name">Violation Detection</div>
+                <div class="stage-stat">95.8% accuracy</div>
+              </div>
+              <div class="stage-bar"><div class="stage-fill pulsing" style="width:68%"></div></div>
+            </div>
+            <div class="pipeline-arrow">▼</div>
+            <div class="pipeline-stage done">
+              <div class="stage-icon">🔤</div>
+              <div class="stage-info">
+                <div class="stage-name">OCR / Plate Recognition</div>
+                <div class="stage-stat">Tesseract v5 · 94.1%</div>
+              </div>
+              <div class="stage-bar"><div class="stage-fill" style="width:81%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Map Heatmap Section -->
+      <div class="panel panel-map">
+        <div class="panel-header">
+          <h3 class="panel-title">Violation Hotspot Map</h3>
+          <div class="map-legend">
+            <span class="legend-item"><span class="legend-dot" style="background:#ff2d55"></span> High</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#ff9500"></span> Medium</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#34c759"></span> Low</span>
+          </div>
+        </div>
+        <div class="heatmap-grid" id="heatmapGrid"></div>
+      </div>
+    </section>
+
+    <!-- ─── PAGE: ANALYZE ───────────────────────────────────────────────── -->
+    <section class="page" id="page-analyze">
+      <div class="page-header">
+        <h2 class="page-title">Image Analysis Engine</h2>
+        <p class="page-desc">Upload traffic images for automated violation detection, vehicle classification, and license plate recognition.</p>
+      </div>
+
+      <div class="analyze-layout">
+        <!-- Upload Zone -->
+        <div class="upload-zone-wrapper">
+          <div class="upload-zone" id="uploadZone">
+            <div class="upload-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <div class="upload-text">
+              <strong>Drop traffic images here</strong>
+              <span>or click to browse — JPG, PNG, WEBP supported</span>
+            </div>
+            <input type="file" id="fileInput" accept="image/*" multiple hidden />
+          </div>
+
+          <div class="sample-images-label">Or use sample images:</div>
+          <div class="sample-grid" id="sampleGrid"></div>
+        </div>
+
+        <!-- Analysis Panel -->
+        <div class="analysis-panel" id="analysisPanel">
+          <div class="analysis-placeholder" id="analysisPlaceholder">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+            <p>Upload an image to begin analysis</p>
+          </div>
+
+          <!-- Processing Steps (hidden until upload) -->
+          <div class="processing-steps" id="processingSteps" style="display:none">
+            <div class="processing-title">Processing Pipeline</div>
+            <div class="step-list" id="stepList"></div>
+          </div>
+
+          <!-- Results (hidden until done) -->
+          <div class="analysis-results" id="analysisResults" style="display:none">
+            <div class="result-image-wrap">
+              <canvas id="resultCanvas" width="600" height="400"></canvas>
+              <div class="result-actions">
+                <button class="btn-primary small" id="downloadBtn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Download Evidence
+                </button>
+                <button class="btn-secondary small" id="analyzeAnotherBtn">Analyze Another</button>
+              </div>
+            </div>
+            <div class="result-details" id="resultDetails"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── PAGE: GALLERY ───────────────────────────────────────────────── -->
+    <section class="page" id="page-gallery">
+      <div class="page-header">
+        <h2 class="page-title">Evidence Gallery</h2>
+        <p class="page-desc">Browse, filter, and review annotated violation evidence with metadata.</p>
+      </div>
+
+      <div class="gallery-controls">
+        <input type="text" class="search-input" id="gallerySearch" placeholder="🔍  Search by plate, location, type…" />
+        <div class="filter-group">
+          <select class="filter-select" id="filterType">
+            <option value="">All Violations</option>
+            <option value="helmet">Helmet Non-compliance</option>
+            <option value="seatbelt">Seatbelt</option>
+            <option value="triple">Triple Riding</option>
+            <option value="wrongside">Wrong-side Driving</option>
+            <option value="stopline">Stop-line Violation</option>
+            <option value="redlight">Red-light</option>
+            <option value="parking">Illegal Parking</option>
+          </select>
+          <select class="filter-select" id="filterSeverity">
+            <option value="">All Severity</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+          </select>
+          <select class="filter-select" id="filterTime">
+            <option value="">All Time</option>
+            <option value="today">Today</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+          </select>
+        </div>
+        <div class="view-toggle">
+          <button class="view-btn active" id="viewGrid">⊞ Grid</button>
+          <button class="view-btn" id="viewList">☰ List</button>
+        </div>
+      </div>
+
+      <div class="gallery-grid" id="galleryGrid"></div>
+    </section>
+
+    <!-- ─── PAGE: ANALYTICS ─────────────────────────────────────────────── -->
+    <section class="page" id="page-analytics">
+      <div class="page-header">
+        <h2 class="page-title">Analytics & Insights</h2>
+        <p class="page-desc">Deep-dive into violation trends, patterns, and temporal analysis.</p>
+      </div>
+
+      <div class="analytics-grid">
+        <!-- Trend Line Chart -->
+        <div class="panel panel-full">
+          <div class="panel-header">
+            <h3 class="panel-title">30-Day Violation Trend</h3>
+            <div class="panel-tabs">
+              <button class="tab-btn active">Violations</button>
+              <button class="tab-btn">Detections</button>
+              <button class="tab-btn">Accuracy</button>
+            </div>
+          </div>
+          <div class="chart-wrapper" style="height:260px">
+            <canvas id="trendLine"></canvas>
+          </div>
+        </div>
+
+        <!-- Violation Type Bar -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3 class="panel-title">Violations by Type</h3>
+          </div>
+          <div class="chart-wrapper" style="height:260px">
+            <canvas id="typeBar"></canvas>
+          </div>
+        </div>
+
+        <!-- Time-of-Day Heatmap -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3 class="panel-title">Day × Hour Heatmap</h3>
+          </div>
+          <div class="time-heatmap" id="timeHeatmap"></div>
+        </div>
+
+        <!-- Top Locations -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3 class="panel-title">Top Violation Locations</h3>
+          </div>
+          <div class="location-list" id="locationList"></div>
+        </div>
+
+        <!-- Environmental Conditions Chart -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3 class="panel-title">Detection by Conditions</h3>
+          </div>
+          <div class="chart-wrapper" style="height:220px">
+            <canvas id="conditionRadar"></canvas>
+          </div>
+        </div>
+
+        <!-- Vehicle Category Breakdown -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3 class="panel-title">Vehicle Categories</h3>
+          </div>
+          <div class="chart-wrapper" style="height:220px">
+            <canvas id="vehicleBar"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── PAGE: OCR ───────────────────────────────────────────────────── -->
+    <section class="page" id="page-ocr">
+      <div class="page-header">
+        <h2 class="page-title">License Plate Recognition</h2>
+        <p class="page-desc">Automated number plate detection and OCR-based registration extraction using deep learning.</p>
+      </div>
+
+      <div class="ocr-layout">
+        <div class="ocr-input-panel">
+          <div class="ocr-upload-zone" id="ocrUploadZone">
+            <div class="upload-icon small">🔍</div>
+            <p>Upload image for plate recognition</p>
+            <input type="file" id="ocrFileInput" accept="image/*" hidden />
+          </div>
+          <div class="ocr-sample-plates" id="ocrSamplePlates"></div>
+        </div>
+
+        <div class="ocr-result-panel" id="ocrResultPanel">
+          <div class="ocr-canvas-wrap">
+            <canvas id="ocrCanvas" width="500" height="320"></canvas>
+          </div>
+          <div class="detected-plates" id="detectedPlates">
+            <div class="ocr-placeholder">
+              <span>🚗</span>
+              <p>No plates detected yet</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="ocr-lookup-panel">
+          <div class="panel-header">
+            <h3 class="panel-title">Registration Lookup</h3>
+          </div>
+          <div class="lookup-form">
+            <input type="text" class="lookup-input" id="plateInput" placeholder="Enter plate number (e.g. MH12AB1234)" />
+            <button class="btn-primary" id="lookupBtn">Lookup</button>
+          </div>
+          <div class="lookup-result" id="lookupResult"></div>
+          <div class="recent-lookups">
+            <div class="recent-label">Recent Lookups</div>
+            <div class="recent-list" id="recentLookups"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── PAGE: REPORTS ──────────────────────────────────────────────── -->
+    <section class="page" id="page-reports">
+      <div class="page-header">
+        <h2 class="page-title">Reports & Documentation</h2>
+        <p class="page-desc">Generate, export, and manage violation reports with full audit trail.</p>
+      </div>
+
+      <div class="reports-layout">
+        <div class="report-generator">
+          <div class="panel">
+            <div class="panel-header">
+              <h3 class="panel-title">Generate Report</h3>
+            </div>
+            <div class="report-form">
+              <div class="form-group">
+                <label>Report Type</label>
+                <select class="filter-select full" id="reportType">
+                  <option>Daily Summary</option>
+                  <option>Weekly Analysis</option>
+                  <option>Monthly Overview</option>
+                  <option>Violation-specific</option>
+                  <option>Location-specific</option>
+                  <option>Custom Range</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Date Range</label>
+                <div class="date-range">
+                  <input type="date" class="date-input" id="reportFrom" />
+                  <span>to</span>
+                  <input type="date" class="date-input" id="reportTo" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Include Sections</label>
+                <div class="checkbox-group">
+                  <label class="checkbox-item"><input type="checkbox" checked /> Executive Summary</label>
+                  <label class="checkbox-item"><input type="checkbox" checked /> Violation Statistics</label>
+                  <label class="checkbox-item"><input type="checkbox" checked /> Annotated Evidence</label>
+                  <label class="checkbox-item"><input type="checkbox" checked /> License Plate Records</label>
+                  <label class="checkbox-item"><input type="checkbox" /> Trend Analysis</label>
+                  <label class="checkbox-item"><input type="checkbox" /> Performance Metrics</label>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Export Format</label>
+                <div class="format-toggle">
+                  <button class="fmt-btn active">PDF</button>
+                  <button class="fmt-btn">CSV</button>
+                  <button class="fmt-btn">JSON</button>
+                  <button class="fmt-btn">XLSX</button>
+                </div>
+              </div>
+              <button class="btn-primary full-width" id="generateReportBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Generate Report
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="report-history">
+          <div class="panel">
+            <div class="panel-header">
+              <h3 class="panel-title">Recent Reports</h3>
+              <button class="btn-ghost">View All</button>
+            </div>
+            <div class="report-list" id="reportList"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3 class="panel-title">Violation Records</h3>
+              <input type="text" class="search-input small" placeholder="Search…" />
+            </div>
+            <div class="records-table-wrap">
+              <table class="records-table" id="recordsTable">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Plate</th>
+                    <th>Type</th>
+                    <th>Location</th>
+                    <th>Time</th>
+                    <th>Severity</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="recordsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── PAGE: PERFORMANCE ──────────────────────────────────────────── -->
+    <section class="page" id="page-performance">
+      <div class="page-header">
+        <h2 class="page-title">Model Performance Evaluation</h2>
+        <p class="page-desc">Comprehensive metrics for assessing detection accuracy, precision, recall, and system efficiency.</p>
+      </div>
+
+      <div class="perf-grid">
+        <!-- Metric Cards -->
+        <div class="metric-card">
+          <div class="metric-ring" id="ringAccuracy" data-value="95.8">
+            <canvas id="accRing" width="120" height="120"></canvas>
+            <div class="ring-label">
+              <div class="ring-value">95.8%</div>
+              <div class="ring-name">Accuracy</div>
+            </div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-ring" id="ringPrecision" data-value="94.2">
+            <canvas id="preRing" width="120" height="120"></canvas>
+            <div class="ring-label">
+              <div class="ring-value">94.2%</div>
+              <div class="ring-name">Precision</div>
+            </div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-ring" id="ringRecall" data-value="93.7">
+            <canvas id="recRing" width="120" height="120"></canvas>
+            <div class="ring-label">
+              <div class="ring-value">93.7%</div>
+              <div class="ring-name">Recall</div>
+            </div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-ring" id="ringF1" data-value="93.9">
+            <canvas id="f1Ring" width="120" height="120"></canvas>
+            <div class="ring-label">
+              <div class="ring-value">93.9%</div>
+              <div class="ring-name">F1-Score</div>
+            </div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-ring" id="ringMAP" data-value="97.3">
+            <canvas id="mapRing" width="120" height="120"></canvas>
+            <div class="ring-label">
+              <div class="ring-value">97.3%</div>
+              <div class="ring-name">mAP@0.5</div>
+            </div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-ring" id="ringOCR" data-value="94.1">
+            <canvas id="ocrRing" width="120" height="120"></canvas>
+            <div class="ring-label">
+              <div class="ring-value">94.1%</div>
+              <div class="ring-name">OCR Accuracy</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Per-Class Performance -->
+        <div class="panel panel-wide-2">
+          <div class="panel-header">
+            <h3 class="panel-title">Per-Class Detection Performance</h3>
+          </div>
+          <div class="class-perf-table" id="classPerfTable"></div>
+        </div>
+
+        <!-- Confusion Matrix (simplified) -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3 class="panel-title">Confusion Matrix</h3>
+          </div>
+          <div class="confusion-matrix" id="confusionMatrix"></div>
+        </div>
+
+        <!-- PR Curve -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3 class="panel-title">Precision-Recall Curve</h3>
+          </div>
+          <div class="chart-wrapper" style="height:220px">
+            <canvas id="prCurve"></canvas>
+          </div>
+        </div>
+
+        <!-- System Efficiency -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3 class="panel-title">System Efficiency</h3>
+          </div>
+          <div class="efficiency-stats" id="efficiencyStats"></div>
+        </div>
+
+        <!-- Model Info -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3 class="panel-title">Model Architecture</h3>
+          </div>
+          <div class="model-info" id="modelInfo"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── PAGE: SETTINGS ─────────────────────────────────────────────── -->
+    <section class="page" id="page-settings">
+      <div class="page-header">
+        <h2 class="page-title">System Configuration</h2>
+        <p class="page-desc">Configure detection thresholds, model parameters, and camera management.</p>
+      </div>
+
+      <div class="settings-grid">
+        <div class="panel">
+          <div class="panel-header"><h3 class="panel-title">Detection Thresholds</h3></div>
+          <div class="settings-group" id="thresholdSettings"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><h3 class="panel-title">Model Configuration</h3></div>
+          <div class="settings-group" id="modelSettings"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><h3 class="panel-title">Camera Management</h3></div>
+          <div class="camera-grid" id="cameraGrid"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><h3 class="panel-title">Preprocessing Pipeline</h3></div>
+          <div class="settings-group" id="preprocessSettings"></div>
+        </div>
+
+        <div class="panel panel-full">
+          <div class="panel-header"><h3 class="panel-title">Notification & Alerts</h3></div>
+          <div class="alert-settings" id="alertSettings"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Notification Dropdown -->
+  <div class="notif-dropdown" id="notifDropdown">
+    <div class="notif-header">Notifications <span class="notif-clear" id="clearNotif">Clear all</span></div>
+    <div class="notif-list" id="notifList"></div>
+  </div>
+
+  <!-- Violation Detail Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="violationModal">
+      <button class="modal-close" id="modalClose">✕</button>
+      <div class="modal-content" id="modalContent"></div>
+    </div>
+  </div>
+
+  <script src="violations.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
