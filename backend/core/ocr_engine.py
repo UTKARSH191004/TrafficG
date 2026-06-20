@@ -55,7 +55,6 @@ class PlateOCREngine:
     def __init__(self):
         self._reader      = None
         self._loaded      = False
-        self._load_reader()
 
     # ── Init ──────────────────────────────────────────────────────────────────
 
@@ -200,6 +199,9 @@ class PlateOCREngine:
         plate_img: np.ndarray,
         bbox: Optional[tuple],
     ) -> Optional[PlateDetection]:
+        
+        if self._reader is None:
+            self._load_reader()
         try:
             results = self._reader.readtext(plate_img)
             if not results:
